@@ -443,8 +443,15 @@ function createCommentElement(comment, isReply = false) {
         actionsHTML += `<button class="reply-comment-btn" onclick="replyToComment(${comment.comment_id}, '${comment.username}')">Reply</button>`;
     }
 
+    let avatarHTML;
+    if (comment.profile_picture) {
+        avatarHTML = `<div class="comment-avatar" style="background-image: url('${comment.profile_picture}'); background-size: cover; background-position: center;"></div>`;
+    } else {
+        avatarHTML = `<div class="comment-avatar">${comment.first_letter}</div>`;
+    }
+
     div.innerHTML = `
-        <div class="comment-avatar">${comment.first_letter}</div>
+        ${avatarHTML}
         <div class="comment-content">
             <div class="comment-header">
                 <span class="comment-author">${escapeHtml(comment.username)}</span>

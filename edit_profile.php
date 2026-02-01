@@ -55,10 +55,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Edit Profile - TruX</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
     <!-- Navigation -->
@@ -73,7 +73,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
             <div class="nav-right">
                 <div class="user-profile">
-                    <span class="username-display"><?php echo strtoupper(substr($username, 0, 1)); ?></span>
+                    <?php if (!empty($user['profile_picture'])): ?>
+                        <div class="username-display" style="background-image: url('<?php echo htmlspecialchars($user['profile_picture']); ?>'); background-size: cover; background-position: center;"></div>
+                    <?php else: ?>
+                        <div class="username-display">
+                            <span class="username-initial"><?php echo strtoupper(substr($username, 0, 1)); ?></span>
+                        </div>
+                    <?php endif; ?>
                     <div class="user-dropdown">
                         <a href="profile.php">My Profile</a>
                         <a href="logout.php">Logout</a>
@@ -91,19 +97,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
 
             <?php if ($success_message): ?>
-            <div class="alert alert-success">
-                ✓ <?php echo $success_message; ?>
-            </div>
+                <div class="alert alert-success">
+                    ✓ <?php echo $success_message; ?>
+                </div>
             <?php endif; ?>
 
             <?php if ($error_message): ?>
-            <div class="alert alert-error">
-                ✗ <?php echo $error_message; ?>
-            </div>
+                <div class="alert alert-error">
+                    ✗ <?php echo $error_message; ?>
+                </div>
             <?php endif; ?>
 
             <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" class="edit-profile-form">
-                
+
                 <!-- Profile Picture Section -->
                 <div class="form-section">
                     <h3>Profile Picture</h3>
@@ -114,8 +120,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <?php endif; ?>
                         </div>
                         <div class="pic-edit-actions">
-                            <button type="button" class="btn-upload" onclick="openImageUpload('profile')">
-                                📷 Change Photo
+                            <button type="button" class="btn-upload" onclick="openImageUpload('profile')"> 📷 Change Photo
                             </button>
 
                             <p class="help-text">JPG, PNG or GIF. Max size 5MB.</p>
@@ -123,20 +128,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </div>
                 </div>
 
-                <hr class="form-divider">
+                <hr class="form-divider" />
 
                 <!-- Cover Photo Section -->
                 <div class="form-section">
                     <h3>Cover Photo</h3>
                     <div class="cover-photo-edit" style="background-image: url('<?php echo !empty($user['cover_photo']) ? htmlspecialchars($user['cover_photo']) : 'https://via.placeholder.com/800x200/667eea/ffffff?text=Cover+Photo'; ?>');">
-                        <button type="button" class="btn-upload-cover" onclick="openImageUpload('cover')">
-                            🖼️ Change Cover
+                        <button type="button" class="btn-upload-cover" onclick="openImageUpload('cover')"> 🖼️ Change Cover
                         </button>
                     </div>
                     <p class="help-text">Recommended size: 1200x300 pixels</p>
                 </div>
 
-                <hr class="form-divider">
+                <hr class="form-divider" />
 
                 <!-- Bio Section -->
                 <div class="form-section">
@@ -150,17 +154,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <!-- Location Section -->
                 <div class="form-section">
                     <label for="location">Location</label>
-                    <input type="text" id="location" name="location" maxlength="100" placeholder="e.g. New York, USA" value="<?php echo htmlspecialchars($user['location'] ?? ''); ?>">
+                    <input type="text" id="location" name="location" maxlength="100" placeholder="e.g. New York, USA" value="<?php echo htmlspecialchars($user['location'] ?? ''); ?>" />
                 </div>
 
                 <!-- Website Section -->
                 <div class="form-section">
                     <label for="website">Website</label>
-                    <input type="url" id="website" name="website" maxlength="255" placeholder="https://yourwebsite.com" value="<?php echo htmlspecialchars($user['website'] ?? ''); ?>">
+                    <input type="url" id="website" name="website" maxlength="255" placeholder="https://yourwebsite.com" value="<?php echo htmlspecialchars($user['website'] ?? ''); ?>" />
                     <p class="help-text">Please include http:// or https://</p>
                 </div>
 
-                <hr class="form-divider">
+                <hr class="form-divider" />
 
                 <!-- Action Buttons -->
                 <div class="form-actions">
@@ -175,8 +179,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Character counter for bio
         const bioTextarea = document.getElementById('bio');
         const bioCount = document.getElementById('bioCount');
-        
-        bioTextarea.addEventListener('input', function() {
+
+        bioTextarea.addEventListener('input', function () {
             bioCount.textContent = this.value.length;
         });
     </script>
