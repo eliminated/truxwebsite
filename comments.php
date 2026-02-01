@@ -20,10 +20,10 @@ $action = isset($_POST['action']) ? $_POST['action'] : 'get';
 if ($action == 'get') {
     $post_id = isset($_GET['post_id']) ? intval($_GET['post_id']) : 0;
 
-    $sql = "SELECT c.*, u.username, u.email 
-            FROM comments c 
-            JOIN users u ON c.user_id = u.id 
-            WHERE c.post_id = ? 
+    $sql = "SELECT c.*, u.username, u.email, u.profile_picture
+            FROM comments c
+            JOIN users u ON c.user_id = u.id
+            WHERE c.post_id = ?
             ORDER BY c.created_at ASC";
 
     if ($stmt = mysqli_prepare($conn, $sql)) {
