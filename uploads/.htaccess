@@ -1,0 +1,12 @@
+# uploads/.htaccess
+# Prevent PHP execution in uploads directory
+<FilesMatch "\.php$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Allow only specific file types
+<FilesMatch "\.(jpg|jpeg|png|gif|mp4|webm|mov)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>

@@ -1,0 +1,34 @@
+<Project Sdk="Devsense.Php.Sdk">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>78cd87e6-3caa-49f5-8555-87d06994bf0f</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <EnvName>Custom</EnvName>
+    <RuntimeVersion>8.2</RuntimeVersion>
+    <SaveServerSettingsInUserFile>false</SaveServerSettingsInUserFile>
+    <PHPDevHostName>localhost</PHPDevHostName>
+    <PHPDevAutoPort>true</PHPDevAutoPort>
+    <PHPDevRouting />
+    <CustomServerUrl>http://localhost/truxwebsite/truxwebsite</CustomServerUrl>
+    <CustomXdebugPort>9003</CustomXdebugPort>
+    <DebugMappingMethod>Automatic</DebugMappingMethod>
+    <DebugPathMapping />
+    <DBGpProxyEnabled>false</DBGpProxyEnabled>
+    <DBGpProxyHost />
+    <DBGpProxyPort>9001</DBGpProxyPort>
+    <IdeKey>C848A357</IdeKey>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Remove="NewFolder\**" />
+    <Content Remove="uploads\images - Copy\**" />
+    <Content Remove="uploads\NewFolder\**" />
+    <Content Remove="uploads\videos - Copy\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Remove="uploads\images" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="uploads\images\" />
+    <Folder Include="uploads\videos\" />
+  </ItemGroup>
+</Project>
