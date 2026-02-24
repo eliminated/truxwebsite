@@ -4,10 +4,9 @@ require_once "notification_helper.php";
 
 header('Content-Type: application/json');
 
-// Enable error logging (for debugging)
+// Enable error reporting to catch hidden SQL errors
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
-ini_set('log_errors', 1);
 
 if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
     echo json_encode(['success' => false, 'message' => 'Not authenticated']);
@@ -22,109 +21,97 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && isset($_P
     $action = $_POST['action'];
     $target_user_id = intval($_POST['user_id']);
 
-    // Prevent following yourself
     if ($target_user_id == $current_user_id) {
-        $response['message'] = 'You cannot follow yourself';
-        echo json_encode($response);
+        echo json_encode(['success' => false, 'message' => 'You cannot follow yourself']);
         exit;
     }
 
-    // Validate target user ID
-    if ($target_user_id <= 0) {
-        $response['message'] = 'Invalid user ID';
-        echo json_encode($response);
-        exit;
-    }
+    // 1. CRITICAL: Check Privacy Setting
+    $target_is_private = 0;
+    $check_sql = "SELECT is_private FROM users WHERE id = ?";
 
-    // Check if target user exists
-    $check_sql = "SELECT id FROM users WHERE id = ?";
     if ($stmt = mysqli_prepare($conn, $check_sql)) {
         mysqli_stmt_bind_param($stmt, "i", $target_user_id);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
 
-        if (mysqli_num_rows($result) == 0) {
-            $response['message'] = 'User not found';
-            echo json_encode($response);
-            mysqli_stmt_close($stmt);
+        if ($row = mysqli_fetch_assoc($result)) {
+            $target_is_private = intval($row['is_private']); // Force integer
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Target user not found']);
             exit;
         }
         mysqli_stmt_close($stmt);
+    } else {
+        // If SQL fails (e.g., column missing), report it instead of failing silently
+        echo json_encode(['success' => false, 'message' => 'Database Error: ' . mysqli_error($conn)]);
+        exit;
     }
 
+    // --- FOLLOW LOGIC ---
     if ($action == 'follow') {
-        // Check if already following
-        $check_follow = "SELECT follow_id FROM follows WHERE follower_id = ? AND following_id = ?";
-        if ($stmt = mysqli_prepare($conn, $check_follow)) {
-            mysqli_stmt_bind_param($stmt, "ii", $current_user_id, $target_user_id);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
 
-            if (mysqli_num_rows($result) > 0) {
-                $response['message'] = 'Already following this user';
-                echo json_encode($response);
-                mysqli_stmt_close($stmt);
-                exit;
-            }
-            mysqli_stmt_close($stmt);
+        // Prevent duplicate follows
+        $dup_check = mysqli_query($conn, "SELECT follow_id FROM follows WHERE follower_id=$current_user_id AND following_id=$target_user_id");
+        if (mysqli_num_rows($dup_check) > 0) {
+            echo json_encode(['success' => false, 'message' => 'Already following']);
+            exit;
         }
 
-        // Follow user
-        $insert_sql = "INSERT INTO follows (follower_id, following_id) VALUES (?, ?)";
-        if ($stmt = mysqli_prepare($conn, $insert_sql)) {
-            mysqli_stmt_bind_param($stmt, "ii", $current_user_id, $target_user_id);
+        // Prevent duplicate requests
+        $req_check = mysqli_query($conn, "SELECT request_id FROM follow_requests WHERE follower_id=$current_user_id AND following_id=$target_user_id");
+        if (mysqli_num_rows($req_check) > 0) {
+            echo json_encode(['success' => false, 'message' => 'Request already pending']);
+            exit;
+        }
 
+        // BRANCHING LOGIC
+        if ($target_is_private === 1) {
+            // ---> PRIVATE: Send Request
+            $sql = "INSERT INTO follow_requests (follower_id, following_id) VALUES (?, ?)";
+            $response_action = 'requested';
+            $notif_type = 'follow_request';
+        } else {
+            // ---> PUBLIC: Direct Follow
+            $sql = "INSERT INTO follows (follower_id, following_id) VALUES (?, ?)";
+            $response_action = 'followed';
+            $notif_type = 'follow';
+        }
+
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "ii", $current_user_id, $target_user_id);
             if (mysqli_stmt_execute($stmt)) {
-                // Create notification (FIXED: use $target_user_id)
-                createNotification($conn, $target_user_id, $current_user_id, 'follow');
+                // Send appropriate notification
+                createNotification($conn, $target_user_id, $current_user_id, $notif_type);
 
                 $response['success'] = true;
-                $response['message'] = 'Successfully followed';
-                $response['action'] = 'followed';
+                $response['action'] = $response_action;
+                $response['message'] = ($target_is_private === 1) ? 'Request sent' : 'Following';
             } else {
-                $response['message'] = 'Failed to follow user: ' . mysqli_error($conn);
+                $response['message'] = 'Database Insert Error';
             }
             mysqli_stmt_close($stmt);
         }
 
+        // --- UNFOLLOW LOGIC ---
     } elseif ($action == 'unfollow') {
-        // Unfollow user
-        $delete_sql = "DELETE FROM follows WHERE follower_id = ? AND following_id = ?";
-        if ($stmt = mysqli_prepare($conn, $delete_sql)) {
-            mysqli_stmt_bind_param($stmt, "ii", $current_user_id, $target_user_id);
+        // Delete from BOTH tables to be safe
+        mysqli_query($conn, "DELETE FROM follows WHERE follower_id=$current_user_id AND following_id=$target_user_id");
+        mysqli_query($conn, "DELETE FROM follow_requests WHERE follower_id=$current_user_id AND following_id=$target_user_id");
 
-            if (mysqli_stmt_execute($stmt)) {
-                if (mysqli_stmt_affected_rows($stmt) > 0) {
-                    // Delete notification (FIXED: use $target_user_id)
-                    deleteNotification($conn, $target_user_id, $current_user_id, 'follow');
+        // Remove notification
+        deleteNotification($conn, $target_user_id, $current_user_id, 'follow');
 
-                    $response['success'] = true;
-                    $response['message'] = 'Successfully unfollowed';
-                    $response['action'] = 'unfollowed';
-                } else {
-                    $response['message'] = 'You are not following this user';
-                }
-            } else {
-                $response['message'] = 'Failed to unfollow user: ' . mysqli_error($conn);
-            }
-            mysqli_stmt_close($stmt);
-        }
-
-    } else {
-        $response['message'] = 'Invalid action';
+        $response['success'] = true;
+        $response['action'] = 'unfollowed';
+        $response['message'] = 'Unfollowed';
     }
 
-    // Get updated follower count
+    // Update count
     if ($response['success']) {
-        $count_sql = "SELECT COUNT(*) as count FROM follows WHERE following_id = ?";
-        if ($stmt = mysqli_prepare($conn, $count_sql)) {
-            mysqli_stmt_bind_param($stmt, "i", $target_user_id);
-            mysqli_stmt_execute($stmt);
-            $result = mysqli_stmt_get_result($stmt);
-            $row = mysqli_fetch_assoc($result);
-            $response['follower_count'] = $row['count'];
-            mysqli_stmt_close($stmt);
-        }
+        $count_res = mysqli_query($conn, "SELECT COUNT(*) as c FROM follows WHERE following_id=$target_user_id");
+        $row = mysqli_fetch_assoc($count_res);
+        $response['follower_count'] = $row['c'];
     }
 
 } else {

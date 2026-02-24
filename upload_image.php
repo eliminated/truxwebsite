@@ -66,6 +66,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["image"])) {
             mysqli_stmt_bind_param($stmt, "si", $filepath, $user_id);
 
             if (mysqli_stmt_execute($stmt)) {
+                // Update the session immediately so the navbar updates without logging out
+                if ($upload_type == 'profile') {
+                    $_SESSION['profile_picture'] = $filepath;
+                }
+
                 $response['success'] = true;
                 $response['message'] = 'Image uploaded successfully!';
                 $response['image_url'] = $filepath;

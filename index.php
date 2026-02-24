@@ -194,20 +194,18 @@ $posts_result = mysqli_stmt_get_result($stmt);
             </div>
 
             <div class="nav-right">
-                <!-- Notification Bell -->
                 <div class="notification-bell">
-                    <button class="bell-btn" onclick="toggleNotifications()">
+                    <button class="bell-btn" id="notifBtn">
                         <span class="bell-icon">🔔</span>
-                        <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                        <span class="notification-badge" id="notifCount" style="display: none;">0</span>
                     </button>
         
-                    <!-- Notification Dropdown -->
                     <div class="notification-dropdown" id="notificationDropdown">
                         <div class="notification-header">
                             <h3>Notifications</h3>
-                            <button class="mark-all-read-btn" onclick="markAllAsRead()">Mark all read</button>
+                            <button class="mark-all-read-btn" id="markAllRead">Mark all read</button>
                         </div>
-                        <div class="notification-list" id="notificationList">
+                        <div class="notification-list" id="notifList">
                             <div class="notification-loading">Loading...</div>
                         </div>
                     </div>
@@ -436,6 +434,9 @@ $posts_result = mysqli_stmt_get_result($stmt);
     </script>
     <script src="script.js"></script>
     <script src="search.js"></script>
-    <script src="notifications.js"></script>
+    <script src="profile.js"></script>
+    <script src="follow.js"></script>
+    <script src="follow_list.js"></script>
+    <script src="notifications.js"></script> 
 </body>
 </html>
