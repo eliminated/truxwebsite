@@ -1,201 +1,165 @@
-// Notification System
-let notificationInterval;
-
-// Initialize notifications on page load
 document.addEventListener('DOMContentLoaded', function () {
-    updateNotificationCount();
-    startNotificationPolling();
+    // 1. SELECT ELEMENTS
+    const notifBtn = document.getElementById('notifBtn');
+    const notifDropdown = document.getElementById('notifDropdown');
+    const notifList = document.getElementById('notifList');
+    const notifCount = document.getElementById('notifCount');
+    const markAllReadBtn = document.getElementById('markAllRead');
+
+    // 2. TOGGLE DROPDOWN
+    // We check if elements exist to prevent errors on pages without nav
+    if (notifBtn && notifDropdown) {
+        notifBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (notifDropdown.style.display === 'block') {
+                notifDropdown.style.display = 'none';
+            } else {
+                notifDropdown.style.display = 'block';
+                loadNotifications(); // Fetch data when opening
+            }
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!notifDropdown.contains(e.target) && !notifBtn.contains(e.target)) {
+                notifDropdown.style.display = 'none';
+            }
+        });
+    }
+
+    // 3. AUTO-CHECK NOTIFICATIONS (Every 30 seconds)
+    checkUnreadCount();
+    setInterval(checkUnreadCount, 30000);
+
+
+    // --- FUNCTIONS ---
+    function checkUnreadCount() {
+        fetch('notifications.php?action=count')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && notifCount) {
+                    notifCount.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                    notifCount.style.display = data.unread_count > 0 ? 'block' : 'none';
+                }
+            })
+            .catch(console.error);
+    }
+
+    function loadNotifications() {
+        if (!notifList) return;
+
+        notifList.innerHTML = '<div style="padding:10px; text-align:center;">Loading...</div>';
+
+        fetch('notifications.php?action=fetch')
+            .then(response => response.json())
+            .then(data => {
+                notifList.innerHTML = '';
+                if (data.success && data.notifications.length > 0) {
+                    data.notifications.forEach(n => {
+                        notifList.appendChild(createNotificationItem(n));
+                    });
+                    // Reset badge since we opened the menu
+                    if (notifCount) notifCount.style.display = 'none';
+                } else {
+                    notifList.innerHTML = '<div style="padding:15px; text-align:center; color:#999;">No notifications</div>';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                notifList.innerHTML = '<div style="padding:10px; color:red; text-align:center;">Failed to load</div>';
+            });
+    }
+
+    // RENDER ITEM
+    function createNotificationItem(n) {
+        const item = document.createElement('div');
+        item.className = `notification-item ${n.is_read ? '' : 'unread'}`;
+
+        let avatarHtml = n.actor_profile_pic
+            ? `<div class="notif-avatar" style="background-image: url('${n.actor_profile_pic}');"></div>`
+            : `<div class="notif-avatar default">${n.actor_username.charAt(0).toUpperCase()}</div>`;
+
+        let contentHtml = '';
+
+        // Follow Request Logic
+        if (n.type === 'follow_request') {
+            contentHtml = `
+                <div class="notif-content">
+                    <p><strong>${n.actor_username}</strong> requested to follow you.</p>
+                    <div class="notif-time">${n.time_ago}</div>
+                    ${n.is_pending ? `
+                    <div class="request-actions">
+                        <button class="btn-confirm" onclick="handleRequest(${n.actor_id}, 'approve', this)">Confirm</button>
+                        <button class="btn-delete" onclick="handleRequest(${n.actor_id}, 'reject', this)">Delete</button>
+                    </div>` : `<div style="font-size:12px; color:#999;">Processed</div>`}
+                </div>`;
+        } else {
+            // Standard Notification
+            let text = n.type === 'follow' ? 'started following you.' :
+                n.type === 'comment' ? 'commented on your post.' :
+                    n.type === 'reaction' ? 'liked your post.' : 'interacted with you.';
+
+            contentHtml = `
+                <div class="notif-content" onclick="window.location.href='profile.php?user=${n.actor_username}'" style="cursor:pointer;">
+                    <p><strong>${n.actor_username}</strong> ${text}</p>
+                    <div class="notif-time">${n.time_ago}</div>
+                </div>`;
+        }
+
+        item.innerHTML = avatarHtml + contentHtml;
+        return item;
+    }
 });
 
-// Toggle notification dropdown
-function toggleNotifications() {
-    const dropdown = document.getElementById('notificationDropdown');
-    const isVisible = dropdown.classList.contains('show');
+// GLOBAL HANDLER (Must be outside DOMContentLoaded)
+function handleRequest(requesterId, action, btnElement) {
+    event.stopPropagation();
+    const parentDiv = btnElement.parentElement;
+    parentDiv.innerHTML = '<span style="color:#666;">Processing...</span>';
+
+    fetch('request_handler.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `action=${action}&requester_id=${requesterId}`
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                parentDiv.innerHTML = action === 'approve'
+                    ? '<span style="color:green; font-weight:bold;">Accepted</span>'
+                    : '<span style="color:red;">Deleted</span>';
+            } else {
+                alert(data.message);
+            }
+        });
+}
+
+// PROFILE MENU TOGGLE
+function toggleProfileMenu(event) {
+    if (event) event.stopPropagation();
+
+    const menu = document.getElementById('profileDropdown');
+    const isVisible = menu.style.display === 'block';
+
+    // Close all other dropdowns first
+    document.querySelectorAll('.user-dropdown, .notification-dropdown, .post-dropdown').forEach(el => {
+        el.style.display = 'none';
+    });
 
     if (!isVisible) {
-        dropdown.classList.add('show');
-        loadNotifications();
-    } else {
-        dropdown.classList.remove('show');
+        menu.style.display = 'block';
     }
 }
 
-// Load notifications
-async function loadNotifications() {
-    const listElement = document.getElementById('notificationList');
-    listElement.innerHTML = '<div class="notification-loading">Loading...</div>';
-
-    try {
-        const response = await fetch('notifications.php?action=fetch');
-        const data = await response.json();
-
-        if (data.success && data.notifications.length > 0) {
-            let html = '';
-            data.notifications.forEach(notif => {
-                html += renderNotification(notif);
-            });
-            listElement.innerHTML = html;
-        } else {
-            listElement.innerHTML = '<div class="notification-empty">No notifications yet</div>';
+// Close profile menu when clicking outside
+document.addEventListener('click', function (e) {
+    // If click is NOT inside the user-profile div
+    if (!e.target.closest('.user-profile')) {
+        const profileDropdown = document.getElementById('profileDropdown');
+        if (profileDropdown) {
+            profileDropdown.style.display = 'none';
         }
-    } catch (error) {
-        console.error('Error loading notifications:', error);
-        listElement.innerHTML = '<div class="notification-empty">Failed to load notifications</div>';
-    }
-}
-
-// Render a single notification
-function renderNotification(notif) {
-    const unreadClass = notif.is_read ? '' : 'unread';
-    const initial = notif.actor_username.charAt(0).toUpperCase();
-    const avatarHtml = notif.actor_profile_pic
-        ? `<div class="notification-avatar" style="background-image: url('${notif.actor_profile_pic}'); background-size: cover;"></div>`
-        : `<div class="notification-avatar">${initial}</div>`;
-
-    let message = '';
-    let link = `profile.php?user=${encodeURIComponent(notif.actor_username)}`;
-
-    switch (notif.type) {
-        case 'follow':
-            message = `<strong>${notif.actor_username}</strong> started following you`;
-            break;
-        case 'follow_request':
-            message = `<strong>${notif.actor_username}</strong> requested to follow you`;
-            link = 'profile.php'; // Link to pending requests
-            break;
-        case 'follow_accepted':
-            message = `<strong>${notif.actor_username}</strong> accepted your follow request`;
-            break;
-        case 'comment':
-            message = `<strong>${notif.actor_username}</strong> commented on your post`;
-            link = `index.php#post-${notif.post_id}`;
-            break;
-        case 'reaction':
-            message = `<strong>${notif.actor_username}</strong> reacted to your post`;
-            link = `index.php#post-${notif.post_id}`;
-            break;
-    }
-
-    return `
-        <div class="notification-item ${unreadClass}" onclick="handleNotificationClick(${notif.id}, '${link}')">
-            ${avatarHtml}
-            <div class="notification-content">
-                <div class="notification-text">${message}</div>
-                <div class="notification-time">${notif.time_ago}</div>
-            </div>
-        </div>
-    `;
-}
-
-// Handle notification click
-async function handleNotificationClick(notificationId, link) {
-    // Mark as read
-    await markAsRead(notificationId);
-
-    // Navigate to link
-    window.location.href = link;
-}
-
-// Mark single notification as read
-async function markAsRead(notificationId) {
-    try {
-        const formData = new FormData();
-        formData.append('notification_id', notificationId);
-
-        await fetch('notifications.php?action=mark_read', {
-            method: 'POST',
-            body: formData
-        });
-
-        updateNotificationCount();
-    } catch (error) {
-        console.error('Error marking notification as read:', error);
-    }
-}
-
-// Mark all as read
-async function markAllAsRead() {
-    try {
-        await fetch('notifications.php?action=mark_all_read', {
-            method: 'POST'
-        });
-
-        // Reload notifications
-        loadNotifications();
-        updateNotificationCount();
-    } catch (error) {
-        console.error('Error marking all as read:', error);
-    }
-}
-
-// Update notification count badge
-async function updateNotificationCount() {
-    try {
-        const response = await fetch('notifications.php?action=count');
-        const data = await response.json();
-
-        if (data.success) {
-            const badge = document.getElementById('notificationBadge');
-            if (data.unread_count > 0) {
-                badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
-                badge.style.display = 'block';
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-    } catch (error) {
-        console.error('Error updating notification count:', error);
-    }
-}
-
-// Start polling for new notifications every 30 seconds
-function startNotificationPolling() {
-    notificationInterval = setInterval(() => {
-        updateNotificationCount();
-    }, 30000); // 30 seconds
-}
-
-// Close notification dropdown when clicking outside
-document.addEventListener('click', function (e) {
-    const dropdown = document.getElementById('notificationDropdown');
-    const bell = document.querySelector('.notification-bell');
-
-    if (dropdown && !bell.contains(e.target)) {
-        dropdown.classList.remove('show');
-    }
-});
-
-
-// Profile dropdown toggle
-function toggleProfileMenu(event) {
-    event.stopPropagation();
-    const dropdown = document.getElementById('profileDropdown');
-    dropdown.classList.toggle('show');
-}
-
-// Close profile dropdown when clicking outside
-document.addEventListener('click', function (e) {
-    const profileDropdown = document.getElementById('profileDropdown');
-    const profileMenu = document.querySelector('.user-profile');
-
-    if (profileDropdown && !profileMenu.contains(e.target)) {
-        profileDropdown.classList.remove('show');
-    }
-});
-
-// Close all dropdowns when clicking outside
-document.addEventListener('click', function (e) {
-    // Close notification dropdown
-    const notifDropdown = document.getElementById('notificationDropdown');
-    const notifBell = document.querySelector('.notification-bell');
-    if (notifDropdown && !notifBell.contains(e.target)) {
-        notifDropdown.classList.remove('show');
-    }
-
-    // Close profile dropdown
-    const profileDropdown = document.getElementById('profileDropdown');
-    const profileMenu = document.querySelector('.user-profile');
-    if (profileDropdown && !profileMenu.contains(e.target)) {
-        profileDropdown.classList.remove('show');
     }
 });

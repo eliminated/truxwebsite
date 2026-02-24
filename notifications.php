@@ -18,13 +18,12 @@ $action = $_GET['action'] ?? '';
 
 switch ($action) {
     case 'fetch':
-        // Fetch notifications with user details
         $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 20;
 
-        $sql = "SELECT n.*, 
-                       u.username as actor_username, 
+        // Modified query to fetch details including actor info
+        $sql = "SELECT n.*,
+                       u.username as actor_username,
                        u.profile_picture as actor_profile_pic,
-                       u.is_verified as actor_verified,
                        u.user_role as actor_role,
                        p.content as post_content
                 FROM notifications n
@@ -41,26 +40,37 @@ switch ($action) {
 
             $notifications = [];
             while ($row = mysqli_fetch_assoc($result)) {
+
+                // Special check for Follow Requests:
+                // Is the request still pending? If not, we shouldn't show the buttons anymore.
+                $is_pending = false;
+                if ($row['type'] == 'follow_request') {
+                    $check_req = "SELECT request_id FROM follow_requests WHERE follower_id = ? AND following_id = ?";
+                    $req_stmt = mysqli_prepare($conn, $check_req);
+                    mysqli_stmt_bind_param($req_stmt, "ii", $row['actor_id'], $current_user_id);
+                    mysqli_stmt_execute($req_stmt);
+                    mysqli_stmt_store_result($req_stmt);
+                    if (mysqli_stmt_num_rows($req_stmt) > 0) {
+                        $is_pending = true;
+                    }
+                    mysqli_stmt_close($req_stmt);
+                }
+
                 $notifications[] = [
-                    'id' => (int) $row['notification_id'],
+                    'id' => (int) $row['notification_id'], // Ensure this matches your DB column name (id or notification_id)
                     'type' => $row['type'],
+                    'actor_id' => (int) $row['actor_id'], // Needed for Approve/Reject
                     'actor_username' => $row['actor_username'],
                     'actor_profile_pic' => $row['actor_profile_pic'],
-                    'actor_verified' => (bool) $row['actor_verified'],
-                    'actor_role' => $row['actor_role'],
-                    'post_id' => $row['post_id'] ? (int) $row['post_id'] : null,
-                    'post_content' => $row['post_content'] ? substr($row['post_content'], 0, 50) : null,
+                    'post_id' => $row['post_id'],
                     'is_read' => (bool) $row['is_read'],
-                    'created_at' => $row['created_at'],
+                    'is_pending' => $is_pending, // Send this to JS
                     'time_ago' => getTimeAgo($row['created_at'])
                 ];
             }
-
             $response['success'] = true;
             $response['notifications'] = $notifications;
             mysqli_stmt_close($stmt);
-        } else {
-            $response['message'] = 'Database error: ' . mysqli_error($conn);
         }
         break;
 

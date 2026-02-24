@@ -103,15 +103,31 @@ $is_private_account = isset($user_is_private) ? $user_is_private : 0;
 
 
 // Check if current user follows the target user
+// Check relationship status
 $is_following = false;
+$is_requested = false; // New variable
+
 if (!$is_own_profile) {
+    // 1. Check if following
     $follow_check_sql = "SELECT follow_id FROM follows WHERE follower_id = ? AND following_id = ?";
     if ($stmt = mysqli_prepare($conn, $follow_check_sql)) {
-        mysqli_stmt_bind_param($stmt, "ii", $current_user_id, $user_id);
+        mysqli_stmt_bind_param($stmt, "ii", $current_user_id, $profile_user_id); // Use $profile_user_id here
         mysqli_stmt_execute($stmt);
         mysqli_stmt_store_result($stmt);
         $is_following = (mysqli_stmt_num_rows($stmt) > 0);
         mysqli_stmt_close($stmt);
+    }
+
+    // 2. If not following, check if requested
+    if (!$is_following) {
+        $req_check_sql = "SELECT request_id FROM follow_requests WHERE follower_id = ? AND following_id = ?";
+        if ($stmt = mysqli_prepare($conn, $req_check_sql)) {
+            mysqli_stmt_bind_param($stmt, "ii", $current_user_id, $profile_user_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_store_result($stmt);
+            $is_requested = (mysqli_stmt_num_rows($stmt) > 0);
+            mysqli_stmt_close($stmt);
+        }
     }
 }
 
@@ -119,13 +135,13 @@ if (!$is_own_profile) {
 $user_posts_sql = "SELECT p.*, u.username, u.email, u.profile_picture, u.user_role, u.is_verified,
                    COUNT(DISTINCT r.reaction_id) as reaction_count,
                    COUNT(DISTINCT c.comment_id) as comment_count
-                   FROM posts p 
-                   JOIN users u ON p.user_id = u.id 
+                   FROM posts p
+                   JOIN users u ON p.user_id = u.id
                    LEFT JOIN reactions r ON p.post_id = r.post_id
                    LEFT JOIN comments c ON p.post_id = c.comment_id
                    WHERE p.user_id = ?
                    GROUP BY p.post_id
-                   ORDER BY p.created_at DESC 
+                   ORDER BY p.created_at DESC
                    LIMIT 50";
 
 
@@ -150,10 +166,10 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><?php echo htmlspecialchars($profile_user['username']); ?> - TruX</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
     <!-- Navigation -->
@@ -188,9 +204,8 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
             <!-- Cover Photo -->
             <div class="cover-photo" style="background-image: url('<?php echo !empty($profile_user['cover_photo']) ? htmlspecialchars($profile_user['cover_photo']) : 'https://via.placeholder.com/1200x300/667eea/ffffff?text=Cover+Photo'; ?>');">
                 <?php if ($is_own_profile): ?>
-                <button class="change-cover-btn" onclick="openImageUpload('cover')">
-                    📷 Change Cover
-                </button>
+                    <button class="change-cover-btn" onclick="openImageUpload('cover')"> 📷 Change Cover
+                    </button>
                 <?php endif; ?>
             </div>
 
@@ -203,9 +218,8 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
                         <?php endif; ?>
                     </div>
                     <?php if ($is_own_profile): ?>
-                    <button class="change-profile-pic-btn" onclick="openImageUpload('profile')">
-                        📷
-                    </button>
+                        <button class="change-profile-pic-btn" onclick="openImageUpload('profile')"> 📷
+                        </button>
                     <?php endif; ?>
                 </div>
 
@@ -222,28 +236,28 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
                     ?>
 
                     <p class="profile-email"><?php echo htmlspecialchars($profile_user['email']); ?></p>
-                    
+
                     <?php if (!empty($profile_user['bio'])): ?>
-                    <p class="profile-bio"><?php echo nl2br(htmlspecialchars($profile_user['bio'])); ?></p>
+                        <p class="profile-bio"><?php echo nl2br(htmlspecialchars($profile_user['bio'])); ?></p>
                     <?php endif; ?>
 
                     <?php if (!empty($profile_user['location'])): ?>
-                    <p class="profile-location">📍 <?php echo htmlspecialchars($profile_user['location']); ?></p>
+                        <p class="profile-location">📍 <?php echo htmlspecialchars($profile_user['location']); ?></p>
                     <?php endif; ?>
 
                     <?php if (!empty($profile_user['website'])): ?>
-                    <p class="profile-website">🔗 <a href="<?php echo htmlspecialchars($profile_user['website']); ?>" target="_blank"><?php echo htmlspecialchars($profile_user['website']); ?></a></p>
+                        <p class="profile-website">🔗 <a href="<?php echo htmlspecialchars($profile_user['website']); ?>" target="_blank"><?php echo htmlspecialchars($profile_user['website']); ?></a></p>
                     <?php endif; ?>
                     <!-- User Badges -->
                     <?php
                     $user_badges = getUserBadges($profile_user_id, $conn);
                     if (count($user_badges) > 0):
                         ?>
-                    <div class="profile-badges">
-                        <?php foreach ($user_badges as $badge): ?>
-                            <?php echo displayBadge($badge); ?>
-                        <?php endforeach; ?>
-                    </div>
+                        <div class="profile-badges">
+                            <?php foreach ($user_badges as $badge): ?>
+                                <?php echo displayBadge($badge); ?>
+                            <?php endforeach; ?>
+                        </div>
                     <?php endif; ?>
 
 
@@ -254,14 +268,29 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
                     <?php if ($is_own_profile): ?>
                         <button class="btn-primary" onclick="window.location.href='edit_profile.php'">✏️ Edit Profile</button>
                     <?php else: ?>
-                        <button class="btn-primary follow-btn <?php echo $is_following ? 'following' : ''; ?>>" 
-                                id="followBtn" 
-                                data-user-id="<?php echo $profile_user_id; ?>"
-                                data-following="<?php echo $is_following ? '1' : '0'; ?>"
-                                onclick="toggleFollow(<?php echo $profile_user_id; ?>)">
-                            <?php echo $is_following ? 'Following' : 'Follow'; ?>
-                        </button>
+                        <?php
+                        if ($is_following) {
+                            $btn_text = "Following";
+                            $btn_class = "following";
+                            $data_state = "1";
+                        } elseif ($is_requested) {
+                            $btn_text = "Requested";
+                            $btn_class = "requested";
+                            $data_state = "2";
+                        } else {
+                            $btn_text = "Follow";
+                            $btn_class = "";
+                            $data_state = "0";
+                        }
+                        ?>
 
+                        <button class="btn-primary follow-btn <?php echo $btn_class; ?>"
+                            id="followBtn"
+                            data-user-id="<?php echo $profile_user_id; ?>"
+                            data-following="<?php echo $data_state; ?>"
+                            onclick="toggleFollow(<?php echo $profile_user_id; ?>)">
+                            <?php echo $btn_text; ?>
+                        </button>
 
                         <button class="btn-secondary" onclick="sendMessage(<?php echo $profile_user_id; ?>)">💬 Message</button>
                     <?php endif; ?>
@@ -304,52 +333,51 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
                     <?php while ($post = mysqli_fetch_assoc($posts_result)):
                         $post_time = date('d/m/Y, g:i:s a', strtotime($post['created_at']));
                         ?>
-                    <div class="post-card" data-post-id="<?php echo $post['post_id']; ?>">
-                        <div class="post-header">
-                            <?php if (!empty($profile_user['profile_picture'])): ?>
-                                <div class="post-avatar" style="background-image: url('<?php echo htmlspecialchars($profile_user['profile_picture']); ?>'); background-size: cover; background-position: center;"></div>
-                            <?php else: ?>
-                                <div class="post-avatar"><?php echo $first_letter; ?></div>
-                            <?php endif; ?>
-                    
-                            <div class="post-info">
-                                <div class="post-author"><?php echo htmlspecialchars($post['username']); ?></div>
-                                <div class="post-time"><?php echo $post_time; ?></div>
-                            </div>
-                        </div>
-                
-                        <div class="post-content" data-content="<?php echo htmlspecialchars($post['content']); ?>"><?php echo nl2br(htmlspecialchars($post['content'])); ?></div>
-                
-                        <?php if (!empty($post['media_path'])): ?>
-                            <div class="post-media">
-                                <?php if ($post['media_type'] == 'image'): ?>
-                                    <img src="<?php echo htmlspecialchars($post['media_path']); ?>" alt="Post image" onclick="openImageLightbox('<?php echo htmlspecialchars($post['media_path']); ?>')">
-                                <?php elseif ($post['media_type'] == 'video'): ?>
-                                    <video controls src="<?php echo htmlspecialchars($post['media_path']); ?>"></video>
+                        <div class="post-card" data-post-id="<?php echo $post['post_id']; ?>">
+                            <div class="post-header">
+                                <?php if (!empty($profile_user['profile_picture'])): ?>
+                                    <div class="post-avatar" style="background-image: url('<?php echo htmlspecialchars($profile_user['profile_picture']); ?>'); background-size: cover; background-position: center;"></div>
+                                <?php else: ?>
+                                    <div class="post-avatar"><?php echo $first_letter; ?></div>
                                 <?php endif; ?>
+
+                                <div class="post-info">
+                                    <div class="post-author"><?php echo htmlspecialchars($post['username']); ?></div>
+                                    <div class="post-time"><?php echo $post_time; ?></div>
+                                </div>
                             </div>
-                        <?php endif; ?>
-                
-                        <div class="post-stats">
-                            <span><?php echo $post['reaction_count']; ?> reactions</span>
-                            <span><?php echo $post['comment_count']; ?> comments</span>
+
+                            <div class="post-content" data-content="<?php echo htmlspecialchars($post['content']); ?>"><?php echo nl2br(htmlspecialchars($post['content'])); ?></div>
+
+                            <?php if (!empty($post['media_path'])): ?>
+                                <div class="post-media">
+                                    <?php if ($post['media_type'] == 'image'): ?>
+                                        <img src="<?php echo htmlspecialchars($post['media_path']); ?>" alt="Post image" onclick="openImageLightbox('<?php echo htmlspecialchars($post['media_path']); ?>')" />
+                                    <?php elseif ($post['media_type'] == 'video'): ?>
+                                        <video controls src="<?php echo htmlspecialchars($post['media_path']); ?>"></video>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="post-stats">
+                                <span><?php echo $post['reaction_count']; ?> reactions</span>
+                                <span><?php echo $post['comment_count']; ?> comments</span>
+                            </div>
                         </div>
-                    </div>
                     <?php endwhile; ?>
                 <?php else: ?>
                     <div class="no-posts">
                         <p>No posts yet</p>
                     </div>
                 <?php endif; ?>
-        
+
             <?php else: ?>
                 <!-- Private account message -->
                 <div class="private-account-message">
                     <div class="private-icon">🔒</div>
                     <h2>This Account is Private</h2>
                     <p>Follow this account to see their posts and activity.</p>
-                    <button class="follow-btn" onclick="toggleFollow(<?php echo $user_id; ?>, this)">
-                        Follow
+                    <button class="follow-btn" onclick="toggleFollow(<?php echo $user_id; ?>, this)"> Follow
                     </button>
                 </div>
             <?php endif; ?>
@@ -370,7 +398,7 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
     <!-- Image Lightbox -->
     <div id="imageLightbox" class="lightbox" onclick="closeLightbox()">
         <span class="lightbox-close">&times;</span>
-        <img id="lightboxImage" src="" alt="Lightbox">
+        <img id="lightboxImage" src="" alt="Lightbox" />
     </div>
 
 
@@ -392,12 +420,17 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
     <script src="profile.js"></script>
     <script src="follow.js"></script>
     <script src="follow_list.js"></script>
+    <script src="notifications.js"></script>
     <script>
         const currentUserId = <?php echo $current_user_id; ?>;
         const profileUserId = <?php echo $profile_user_id; ?>;
         const isOwnProfile = <?php echo $is_own_profile ? 'true' : 'false'; ?>;
     </script>
     <script src="image_upload.js"></script>
+    <script src="profile.js"></script>
+    <script src="follow.js"></script>
+    <script src="follow_list.js"></script>
+    <script src="notifications.js"></script> </body>
 </body>
 </html>
 
