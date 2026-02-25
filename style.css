@@ -112,7 +112,7 @@ body {
 
 .user-dropdown {
     position: absolute;
-    top: calc(100% + 10px);
+    top: calc(100% + 4px);
     right: 0;
     background: white;
     border-radius: 12px;
@@ -132,10 +132,10 @@ body {
     .user-dropdown::before {
         content: '';
         position: absolute;
-        top: -10px; /* Bridge the gap */
+        top: -8px; /* Bridge the gap */
         left: 0;
         right: 0;
-        height: 15px; /* Invisible area above dropdown */
+        height: 12px; /* Invisible area above dropdown */
         background: transparent;
     }
 
