@@ -187,7 +187,7 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
                     <?php if (!empty($current_user_profile_pic)): ?>
                         <span class="username-display" style="background-image: url('<?php echo htmlspecialchars($current_user_profile_pic); ?>'); background-size: cover; background-position: center;"></span>
                     <?php else: ?>
-                        <span class="username-display"><?php echo strtoupper(substr($username, 0, 1)); ?></span>
+                        <span class="username-display"><?php echo strtoupper(substr($current_username, 0, 1)); ?></span>
                     <?php endif; ?>
                     <div class="user-dropdown">
                         <a href="profile.php">My Profile</a>
@@ -427,10 +427,6 @@ $join_date = date('F Y', strtotime($profile_user['created_at']));
         const isOwnProfile = <?php echo $is_own_profile ? 'true' : 'false'; ?>;
     </script>
     <script src="image_upload.js"></script>
-    <script src="profile.js"></script>
-    <script src="follow.js"></script>
-    <script src="follow_list.js"></script>
-    <script src="notifications.js"></script> </body>
 </body>
 </html>
 

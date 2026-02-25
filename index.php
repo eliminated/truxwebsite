@@ -200,7 +200,7 @@ $posts_result = mysqli_stmt_get_result($stmt);
                         <span class="notification-badge" id="notifCount" style="display: none;">0</span>
                     </button>
         
-                    <div class="notification-dropdown" id="notificationDropdown">
+                    <div class="notification-dropdown" id="notifDropdown">
                         <div class="notification-header">
                             <h3>Notifications</h3>
                             <button class="mark-all-read-btn" id="markAllRead">Mark all read</button>
