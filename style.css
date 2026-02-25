@@ -83,7 +83,7 @@ body {
     align-items: center;
     cursor: pointer;
     height: 100%;
-    padding: 0 5px;
+    padding: 0 5px 8px;
 }
 
 .username-display {
@@ -112,7 +112,7 @@ body {
 
 .user-dropdown {
     position: absolute;
-    top: calc(100% + 10px);
+    top: 100%;
     right: 0;
     background: white;
     border-radius: 12px;

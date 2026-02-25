@@ -201,8 +201,12 @@ $posts_result = mysqli_stmt_get_result($stmt);
                         <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
                     </button>
         
+<<<<<<< Updated upstream
                     <!-- Notification Dropdown -->
                     <div class="notification-dropdown" id="notificationDropdown">
+=======
+                    <div class="notification-dropdown" id="notifDropdown">
+>>>>>>> Stashed changes
                         <div class="notification-header">
                             <h3>Notifications</h3>
                             <button class="mark-all-read-btn" onclick="markAllAsRead()">Mark all read</button>
